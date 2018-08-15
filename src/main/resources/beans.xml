@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:p="http://www.springframework.org/schema/p" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd
+       	http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx.xsd
+        http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop-4.3.xsd">
+
+	<context:component-scan base-package="com.yc" />
+	<!-- proxy-target-class="true" -->
+	<!-- 开启aspectj的支持 -->
+	<aop:aspectj-autoproxy />
+
+	<bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource"
+		destroy-method="close">
+		<property name="driverClassName" value="${jdbc.driverClassName}" />
+		<property name="url" value="${jdbc.url}" />
+		<property name="username" value="${jdbc.username}" />
+		<property name="password" value="${jdbc.password}" />
+	</bean>
+
+	<bean
+		class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="locations" value="classpath:jdbc.properties"></property>
+
+	</bean>
+
+	<!-- mybatis sqlsessionfactory session工厂 -->
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource"></property>
+		<!-- 还是用mybatis中的配置文件 <property name="configLocation" value="classpath:mybatis-config.xml"></property> -->
+		<!-- 优化: 不再需要 mybatis的配置文件, 配置mybatis中别名. -->
+		<property name="TypeAliasesPackage">
+			<array>
+				<value>com.yc.bean</value>
+			</array>
+		</property>
+		<property name="mapperLocations" value="classpath*:com/yc/dao/*.xml" />
+		<!-- 主要用来配置mybatis中的 configuration中的settings配置 -->
+		<property name="configurationProperties">
+			<props>
+				<prop key="logImpl">LOG4J</prop>
+			</props>
+		</property>
+	</bean>
+
+	<!-- 步骤四: 创建sqlSessiontemplate, 这个类是包装了 mybatis中的sqlsession的类, 用于获取数据库的联接 -->
+	<bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">
+		<!-- 只能通过 构造方法注入 sqlSessionFactory -->
+		<constructor-arg name="sqlSessionFactory" ref="sqlSessionFactory"></constructor-arg>
+	</bean>
+	<!-- mybatis使用与jdbc同款的事物管理器 -->
+	<bean id="txManager"
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+	<!-- 启用事务 注解 -->
+	<!-- <tx:annotation-driven transaction-manager="txManager"/> -->
+
+
+	<bean id="accountDaoImpl" class="com.yc.dao.impl.AccountDaoImpl">
+		<property name="SqlSessionTemplate" ref="sqlSession" />
+	</bean>
+
+	<bean id="opRecordDaoImpl" class="com.yc.dao.impl.OpRecordDaoImpl">
+		<property name="SqlSessionTemplate" ref="sqlSession" />
+	</bean>
+	<bean id="accountBizImpl" class="com.yc.biz.impl.AccountBizImpl">
+		<property name="accountDao" ref="accountDaoImpl" />
+		<property name="opRecordDao" ref="opRecordDaoImpl" />
+	</bean>
+
+	<!-- 生成事物的增强 的切面类的对象 -->
+	<tx:advice id="txAdvice" transaction-manager="txManager">
+		<tx:attributes>
+			<tx:method name="get*" read-only="true" isolation="DEFAULT"
+				propagation="REQUIRED" />
+			<tx:method name="find*" read-only="true" isolation="DEFAULT"
+				propagation="REQUIRED" />
+			<tx:method name="select*" read-only="true" isolation="DEFAULT"
+				propagation="REQUIRED" />
+			<tx:method name="retrive*" read-only="true" isolation="DEFAULT"
+				propagation="REQUIRED" />
+			<tx:method name="*" />
+		</tx:attributes>
+	</tx:advice>
+
+	<aop:config>
+		<aop:pointcut id="a" expression="execution(* com.yc.biz.impl.*.*(..))" />
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="a" />
+	</aop:config>
+</beans>

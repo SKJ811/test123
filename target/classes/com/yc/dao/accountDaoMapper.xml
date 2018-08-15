@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yc.dao.accountDaoMapper">
+	<!-- 使用二级缓存 -->
+	<cache 
+		eviction="FIFO"
+		flushInterval="60000"
+		size="512"
+		readOnly="true"
+	/>
+	
+	<!-- 查询 -->
+	<select id="findAccount" parameterType="int" resultType="Account">
+		select * from account where accountid=#{accountid}
+	</select>
+	
+	<!-- 存取转账的业务放在业务层 -->
+	<update id="updateAccount" parameterType="Account" >
+		update account set balance=balance+#{balance} where accountid=#{accountid}
+	</update>
+</mapper>
